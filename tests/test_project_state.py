@@ -273,5 +273,41 @@ class ProjectStateCliTests(unittest.TestCase):
             self.assertEqual(self.run_main("validate", "--root", root), 0)
 
 
+class PersonalProjectIntegrationTests(unittest.TestCase):
+    def test_personal_project_fixture_validates_and_renders(self):
+        fixture = ROOT / "tests" / "fixtures" / "personal-project.json"
+        state = json.loads(fixture.read_text(encoding="utf-8"))
+
+        project_state.validate_state(state)
+
+        rendered = project_state.render_project_md(state)
+        committed = (
+            ROOT
+            / "examples"
+            / "personal-project"
+            / ".project"
+            / "PROJECT.md"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(rendered, committed)
+
+    def test_personal_project_update_bumps_revision(self):
+        fixture = ROOT / "tests" / "fixtures" / "personal-project.json"
+        state = json.loads(fixture.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            project_dir = Path(temp) / ".project"
+            project_state.write_new_project(project_dir, state)
+            candidate = copy.deepcopy(state)
+            candidate["revision"] += 1
+            candidate["work_items"][0]["status"] = "in_progress"
+            candidate["work_items"][0]["updated_at"] = "2026-09-21T00:00:00Z"
+            candidate["project"]["updated_at"] = "2026-09-21T00:00:00Z"
+
+            changed = project_state.apply_candidate(
+                project_dir, candidate, state["revision"]
+            )
+
+            self.assertEqual(changed["revision"], state["revision"] + 1)
+
+
 if __name__ == "__main__":
     unittest.main()
