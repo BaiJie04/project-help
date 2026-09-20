@@ -36,5 +36,30 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn('display_name: "Project Workflow"', metadata)
 
 
+class PromptScenarioTests(unittest.TestCase):
+    def test_required_scenarios_have_contract_sections(self):
+        expected = {
+            "init-project.md",
+            "blocked-work.md",
+            "overdue-review.md",
+            "acceptance-evidence.md",
+            "risk-escalation.md",
+            "project-retrospective.md",
+            "chat-only-fallback.md",
+        }
+        scenario_dir = ROOT / "tests" / "scenarios"
+        self.assertEqual(expected, {path.name for path in scenario_dir.glob("*.md")})
+        for name in expected:
+            text = (scenario_dir / name).read_text(encoding="utf-8")
+            for heading in (
+                "## Runtime Capabilities",
+                "## User Prompt",
+                "## Expected Behavior",
+                "## State Assertions",
+                "## Failure Conditions",
+            ):
+                self.assertIn(heading, text, name)
+
+
 if __name__ == "__main__":
     unittest.main()
