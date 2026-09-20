@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved design for implementation planning. User review of this written specification is pending.
+Approved and reviewed for v0.1.0 implementation.
 
 ## Goal
 
@@ -65,8 +65,9 @@ project-help/
 |   `-- PROJECT.md
 |-- examples/
 |   `-- personal-project/
-|       |-- project.json
-|       `-- PROJECT.md
+|       `-- .project/
+|           |-- project.json
+|           `-- PROJECT.md
 |-- scripts/
 |   `-- project_state.py
 `-- tests/
@@ -183,6 +184,7 @@ Rules:
 - `depends_on` contains work-item IDs and must not contain self-references or cycles.
 - `milestone_id`, `iteration_id`, and `parent_id` must reference existing entities of the correct type.
 - A work item can be marked `done` when all acceptance criteria are `met`.
+- Every completed work item records `completed_at` and a `completion_note` containing the acceptance evidence.
 - If the user explicitly accepts incomplete criteria, set `completion_exception` to `true`, document every incomplete criterion in `completion_note`, and pass all mandatory automated checks.
 
 ### Risks
