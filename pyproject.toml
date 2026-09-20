@@ -1,0 +1,11 @@
+[project]
+name = "project-workflow-skill"
+version = "0.1.0"
+description = "Portable personal development project workflow skill"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "yao-wen-yi" }
+]
+dependencies = []

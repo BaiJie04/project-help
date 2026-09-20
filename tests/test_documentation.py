@@ -61,5 +61,25 @@ class PromptScenarioTests(unittest.TestCase):
                 self.assertIn(heading, text, name)
 
 
+class PackagingTests(unittest.TestCase):
+    def test_readme_documents_three_portability_modes(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for heading in (
+            "Skill Mode",
+            "File Mode",
+            "Chat Mode",
+            "Installation",
+            "GitHub Upload",
+        ):
+            self.assertIn(f"## {heading}", readme)
+
+    def test_release_metadata_uses_mit_and_v010(self):
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn('version = "0.1.0"', pyproject)
+        self.assertIn("MIT License", (ROOT / "LICENSE").read_text(encoding="utf-8"))
+        self.assertIn("## [0.1.0]", changelog)
+
+
 if __name__ == "__main__":
     unittest.main()
