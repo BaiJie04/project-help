@@ -1,10 +1,37 @@
 """Validate and maintain portable project state files."""
 
+import re
 from datetime import datetime, timezone
 
 
 SCHEMA_VERSION = 1
 PROJECT_STATUSES = {"planning", "active", "paused", "completed", "archived"}
+MILESTONE_STATUSES = {"planned", "active", "completed", "cancelled"}
+ITERATION_STATUSES = {"planned", "active", "completed", "cancelled"}
+WORK_ITEM_TYPES = {"epic", "story", "task", "bug", "spike"}
+WORK_ITEM_STATUSES = {
+    "backlog",
+    "ready",
+    "in_progress",
+    "blocked",
+    "review",
+    "done",
+    "cancelled",
+}
+PRIORITIES = {"p0", "p1", "p2", "p3"}
+ACCEPTANCE_STATUSES = {"pending", "met"}
+RISK_LEVELS = {"low", "medium", "high"}
+RISK_STATUSES = {"open", "mitigated", "accepted", "closed"}
+DECISION_STATUSES = {"proposed", "accepted", "rejected", "superseded"}
+
+PROJECT_ID_PATTERN = r"^PRJ-\d{3,}$"
+ENTITY_PATTERNS = {
+    "milestones": r"^M-\d{3,}$",
+    "iterations": r"^I-\d{3,}$",
+    "work_items": r"^T-\d{3,}$",
+    "risks": r"^R-\d{3,}$",
+    "decisions": r"^D-\d{3,}$",
+}
 
 
 class ValidationError(ValueError):
@@ -75,6 +102,8 @@ def validate_state(state):
             raise ValidationError(f"project.{field} must be a non-empty string")
     if project["status"] not in PROJECT_STATUSES:
         raise ValidationError("project.status is invalid")
+    if not re.fullmatch(PROJECT_ID_PATTERN, project["id"]):
+        raise ValidationError("project.id is invalid")
 
     for field in ("constraints", "success_criteria"):
         if not isinstance(project[field], list) or not all(
@@ -89,6 +118,31 @@ def validate_state(state):
         if not isinstance(state.get(collection), list):
             raise ValidationError(f"{collection} must be an array")
 
+    milestone_ids = _validate_entity_ids(
+        state["milestones"], ENTITY_PATTERNS["milestones"], "milestones"
+    )
+    iteration_ids = _validate_entity_ids(
+        state["iterations"], ENTITY_PATTERNS["iterations"], "iterations"
+    )
+    work_item_ids = _validate_entity_ids(
+        state["work_items"], ENTITY_PATTERNS["work_items"], "work_items"
+    )
+    risk_ids = _validate_entity_ids(
+        state["risks"], ENTITY_PATTERNS["risks"], "risks"
+    )
+    decision_ids = _validate_entity_ids(
+        state["decisions"], ENTITY_PATTERNS["decisions"], "decisions"
+    )
+
+    _validate_milestones(state["milestones"])
+    _validate_iterations(state["iterations"])
+    _validate_work_items(
+        state["work_items"], milestone_ids, iteration_ids, work_item_ids
+    )
+    _validate_risks(state["risks"])
+    _validate_decisions(state["decisions"], decision_ids)
+    _detect_work_item_cycle(state["work_items"])
+
 
 def _validate_utc_timestamp(value, label):
     if not isinstance(value, str) or not value.endswith("Z"):
@@ -99,6 +153,236 @@ def _validate_utc_timestamp(value, label):
         raise ValidationError(f"{label} must be a valid ISO 8601 timestamp") from exc
     if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
         raise ValidationError(f"{label} must use UTC")
+
+
+def _require_fields(item, fields, label):
+    if not isinstance(item, dict):
+        raise ValidationError(f"{label} must be an object")
+    for field in fields:
+        if field not in item:
+            raise ValidationError(f"{label}.{field} is required")
+
+
+def _require_string(item, field, label):
+    value = item[field]
+    if not isinstance(value, str) or not value.strip():
+        raise ValidationError(f"{label}.{field} must be a non-empty string")
+
+
+def _validate_optional_timestamp(item, field, label):
+    if field in item:
+        _validate_utc_timestamp(item[field], f"{label}.{field}")
+
+
+def _validate_entity_ids(items, pattern, collection):
+    seen = set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValidationError(f"{collection} items must be objects")
+        item_id = item.get("id")
+        if not isinstance(item_id, str) or not re.fullmatch(pattern, item_id):
+            raise ValidationError(f"{collection}.id is invalid")
+        if item_id in seen:
+            raise ValidationError(f"duplicate ID in {collection}: {item_id}")
+        seen.add(item_id)
+    return seen
+
+
+def _validate_milestones(milestones):
+    required = ("id", "title", "description", "status", "created_at", "updated_at")
+    for milestone in milestones:
+        label = f"milestones[{milestone.get('id', '?')}]"
+        _require_fields(milestone, required, label)
+        for field in ("title", "description", "status", "created_at", "updated_at"):
+            _require_string(milestone, field, label)
+        if milestone["status"] not in MILESTONE_STATUSES:
+            raise ValidationError(f"{label}.status is invalid")
+        _validate_utc_timestamp(milestone["created_at"], f"{label}.created_at")
+        _validate_utc_timestamp(milestone["updated_at"], f"{label}.updated_at")
+        for field in ("target_date", "completed_at"):
+            _validate_optional_timestamp(milestone, field, label)
+
+
+def _validate_iterations(iterations):
+    required = ("id", "title", "goal", "status", "created_at", "updated_at")
+    for iteration in iterations:
+        label = f"iterations[{iteration.get('id', '?')}]"
+        _require_fields(iteration, required, label)
+        for field in ("title", "goal", "status", "created_at", "updated_at"):
+            _require_string(iteration, field, label)
+        if iteration["status"] not in ITERATION_STATUSES:
+            raise ValidationError(f"{label}.status is invalid")
+        _validate_utc_timestamp(iteration["created_at"], f"{label}.created_at")
+        _validate_utc_timestamp(iteration["updated_at"], f"{label}.updated_at")
+        for field in ("start_date", "end_date", "completed_at"):
+            _validate_optional_timestamp(iteration, field, label)
+
+
+def _validate_work_items(work_items, milestone_ids, iteration_ids, work_item_ids):
+    required = (
+        "id",
+        "type",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "acceptance_criteria",
+        "created_at",
+        "updated_at",
+    )
+    for item in work_items:
+        label = f"work_items[{item.get('id', '?')}]"
+        _require_fields(item, required, label)
+        for field in (
+            "type",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "created_at",
+            "updated_at",
+        ):
+            _require_string(item, field, label)
+        if item["type"] not in WORK_ITEM_TYPES:
+            raise ValidationError(f"{label}.type is invalid")
+        if item["status"] not in WORK_ITEM_STATUSES:
+            raise ValidationError(f"{label}.status is invalid")
+        if item["priority"] not in PRIORITIES:
+            raise ValidationError(f"{label}.priority is invalid")
+        _validate_utc_timestamp(item["created_at"], f"{label}.created_at")
+        _validate_utc_timestamp(item["updated_at"], f"{label}.updated_at")
+        _validate_optional_timestamp(item, "due_date", label)
+        _validate_optional_timestamp(item, "completed_at", label)
+
+        if item.get("milestone_id") is not None and item["milestone_id"] not in milestone_ids:
+            raise ValidationError(f"{label}.milestone_id references an unknown milestone")
+        if item.get("iteration_id") is not None and item["iteration_id"] not in iteration_ids:
+            raise ValidationError(f"{label}.iteration_id references an unknown iteration")
+        if item.get("parent_id") is not None and item["parent_id"] not in work_item_ids:
+            raise ValidationError(f"{label}.parent_id references an unknown work item")
+
+        depends_on = item.get("depends_on", [])
+        if not isinstance(depends_on, list) or not all(
+            isinstance(value, str) for value in depends_on
+        ):
+            raise ValidationError(f"{label}.depends_on must be an array of IDs")
+        if item["id"] in depends_on:
+            raise ValidationError(f"{label}.depends_on contains a self-reference")
+        for dependency in depends_on:
+            if dependency not in work_item_ids:
+                raise ValidationError(f"{label}.depends_on references {dependency}")
+
+        criteria = item["acceptance_criteria"]
+        if not isinstance(criteria, list):
+            raise ValidationError(f"{label}.acceptance_criteria must be an array")
+        criterion_ids = set()
+        for criterion in criteria:
+            criterion_label = f"{label}.acceptance_criteria"
+            _require_fields(criterion, ("id", "text", "status"), criterion_label)
+            _require_string(criterion, "id", criterion_label)
+            _require_string(criterion, "text", criterion_label)
+            if not re.fullmatch(r"^AC-\d{3,}$", criterion["id"]):
+                raise ValidationError(f"{criterion_label}.id is invalid")
+            if criterion["id"] in criterion_ids:
+                raise ValidationError(f"duplicate acceptance criterion ID: {criterion['id']}")
+            criterion_ids.add(criterion["id"])
+            if criterion["status"] not in ACCEPTANCE_STATUSES:
+                raise ValidationError(f"{criterion_label}.status is invalid")
+
+        if item["status"] == "blocked" and not item.get("blocked_reason"):
+            raise ValidationError(f"{label}.blocked_reason is required when blocked")
+
+        if item["status"] == "done":
+            if "completed_at" not in item:
+                raise ValidationError(f"{label}.completed_at is required when done")
+            if not item.get("completion_note"):
+                raise ValidationError(f"{label}.completion_note is required when done")
+            pending = [
+                criterion
+                for criterion in criteria
+                if criterion["status"] == "pending"
+            ]
+            if pending and item.get("completion_exception") is not True:
+                raise ValidationError(
+                    f"{label}.completion_exception is required for unmet criteria"
+                )
+        elif item.get("completion_exception") is True:
+            raise ValidationError(
+                f"{label}.completion_exception is only valid when done"
+            )
+
+
+def _validate_risks(risks):
+    required = (
+        "id",
+        "title",
+        "description",
+        "probability",
+        "impact",
+        "status",
+        "mitigation",
+        "created_at",
+        "updated_at",
+    )
+    for risk in risks:
+        label = f"risks[{risk.get('id', '?')}]"
+        _require_fields(risk, required, label)
+        for field in required[1:]:
+            _require_string(risk, field, label)
+        if risk["probability"] not in RISK_LEVELS:
+            raise ValidationError(f"{label}.probability is invalid")
+        if risk["impact"] not in RISK_LEVELS:
+            raise ValidationError(f"{label}.impact is invalid")
+        if risk["status"] not in RISK_STATUSES:
+            raise ValidationError(f"{label}.status is invalid")
+        _validate_utc_timestamp(risk["created_at"], f"{label}.created_at")
+        _validate_utc_timestamp(risk["updated_at"], f"{label}.updated_at")
+
+
+def _validate_decisions(decisions, decision_ids):
+    required = (
+        "id",
+        "title",
+        "context",
+        "decision",
+        "rationale",
+        "consequences",
+        "status",
+        "created_at",
+        "updated_at",
+    )
+    for decision in decisions:
+        label = f"decisions[{decision.get('id', '?')}]"
+        _require_fields(decision, required, label)
+        for field in required[1:]:
+            _require_string(decision, field, label)
+        if decision["status"] not in DECISION_STATUSES:
+            raise ValidationError(f"{label}.status is invalid")
+        _validate_utc_timestamp(decision["created_at"], f"{label}.created_at")
+        _validate_utc_timestamp(decision["updated_at"], f"{label}.updated_at")
+        if decision.get("supersedes") is not None:
+            if decision["supersedes"] not in decision_ids:
+                raise ValidationError(f"{label}.supersedes references an unknown decision")
+
+
+def _detect_work_item_cycle(work_items):
+    graph = {item["id"]: item.get("depends_on", []) for item in work_items}
+    visiting = set()
+    visited = set()
+
+    def visit(node):
+        if node in visiting:
+            raise ValidationError("work item dependency cycle detected")
+        if node in visited:
+            return
+        visiting.add(node)
+        for dependency in graph[node]:
+            visit(dependency)
+        visiting.remove(node)
+        visited.add(node)
+
+    for node in graph:
+        visit(node)
 
 
 if __name__ == "__main__":

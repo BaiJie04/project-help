@@ -52,5 +52,72 @@ class StateFoundationTests(unittest.TestCase):
             project_state.validate_state(state)
 
 
+class StateIntegrityTests(unittest.TestCase):
+    def base_state(self):
+        return project_state.new_state(
+            "Demo", "Build a demo", ["Runs"], [], now="2026-09-20T00:00:00Z"
+        )
+
+    def work_item(self, item_id, depends_on=None, status="ready", criteria=None):
+        return {
+            "id": item_id,
+            "type": "task",
+            "title": item_id,
+            "description": "Do work",
+            "status": status,
+            "priority": "p1",
+            "acceptance_criteria": criteria or [],
+            "depends_on": depends_on or [],
+            "created_at": "2026-09-20T00:00:00Z",
+            "updated_at": "2026-09-20T00:00:00Z",
+        }
+
+    def test_validate_state_rejects_duplicate_work_item_ids(self):
+        state = self.base_state()
+        state["work_items"] = [self.work_item("T-001"), self.work_item("T-001")]
+
+        with self.assertRaisesRegex(project_state.ValidationError, "duplicate"):
+            project_state.validate_state(state)
+
+    def test_validate_state_rejects_dangling_dependency(self):
+        state = self.base_state()
+        state["work_items"] = [self.work_item("T-001", depends_on=["T-999"])]
+
+        with self.assertRaisesRegex(project_state.ValidationError, "T-999"):
+            project_state.validate_state(state)
+
+    def test_validate_state_rejects_dependency_cycle(self):
+        state = self.base_state()
+        state["work_items"] = [
+            self.work_item("T-001", depends_on=["T-002"]),
+            self.work_item("T-002", depends_on=["T-001"]),
+        ]
+
+        with self.assertRaisesRegex(project_state.ValidationError, "cycle"):
+            project_state.validate_state(state)
+
+    def test_done_requires_met_criteria_or_documented_exception(self):
+        state = self.base_state()
+        state["work_items"] = [
+            self.work_item(
+                "T-001",
+                status="done",
+                criteria=[
+                    {"id": "AC-001", "text": "Passes", "status": "pending"}
+                ],
+            )
+        ]
+        state["work_items"][0]["completion_note"] = (
+            "User accepted the unmet criterion."
+        )
+        state["work_items"][0]["completed_at"] = "2026-09-21T00:00:00Z"
+
+        with self.assertRaisesRegex(project_state.ValidationError, "completion_exception"):
+            project_state.validate_state(state)
+
+        state["work_items"][0]["completion_exception"] = True
+        project_state.validate_state(state)
+
+
 if __name__ == "__main__":
     unittest.main()
