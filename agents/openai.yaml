@@ -1,0 +1,5 @@
+interface:
+  display_name: "Project Workflow"
+  short_description: "Portable personal project workflow"
+  default_prompt: "Manage this project using the project-workflow skill."
+
