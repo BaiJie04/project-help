@@ -1,4 +1,7 @@
+import copy
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -117,6 +120,84 @@ class StateIntegrityTests(unittest.TestCase):
 
         state["work_items"][0]["completion_exception"] = True
         project_state.validate_state(state)
+
+
+class StateRenderingAndApplyTests(unittest.TestCase):
+    def test_render_project_md_contains_required_sections(self):
+        state = project_state.new_state(
+            "Demo",
+            "Build a demo",
+            ["Runs"],
+            ["No network"],
+            now="2026-09-20T00:00:00Z",
+        )
+
+        rendered = project_state.render_project_md(state)
+
+        for heading in (
+            "Project Summary",
+            "Success Criteria",
+            "Constraints",
+            "Next Actions",
+            "Risks",
+            "Decisions",
+        ):
+            self.assertIn(f"## {heading}", rendered)
+
+    def test_apply_rejects_revision_mismatch_without_touching_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project_dir = Path(temp) / ".project"
+            state = project_state.new_state(
+                "Demo",
+                "Build a demo",
+                ["Runs"],
+                [],
+                now="2026-09-20T00:00:00Z",
+            )
+            project_state.write_new_project(project_dir, state)
+            before = (project_dir / "project.json").read_text(encoding="utf-8")
+            candidate = copy.deepcopy(state)
+            candidate["revision"] = 2
+
+            with self.assertRaisesRegex(project_state.ValidationError, "revision"):
+                project_state.apply_candidate(
+                    project_dir, candidate, expected_revision=99
+                )
+
+            self.assertEqual(
+                (project_dir / "project.json").read_text(encoding="utf-8"), before
+            )
+
+    def test_apply_writes_state_and_generated_view(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project_dir = Path(temp) / ".project"
+            state = project_state.new_state(
+                "Demo",
+                "Build a demo",
+                ["Runs"],
+                [],
+                now="2026-09-20T00:00:00Z",
+            )
+            project_state.write_new_project(project_dir, state)
+            candidate = copy.deepcopy(state)
+            candidate["revision"] = 2
+            candidate["project"]["summary"] = "Updated"
+
+            applied = project_state.apply_candidate(
+                project_dir, candidate, expected_revision=1
+            )
+
+            self.assertEqual(applied["revision"], 2)
+            self.assertEqual(
+                project_state.load_state(project_dir / "project.json")["project"][
+                    "summary"
+                ],
+                "Updated",
+            )
+            self.assertIn(
+                "Updated",
+                (project_dir / "PROJECT.md").read_text(encoding="utf-8"),
+            )
 
 
 if __name__ == "__main__":
