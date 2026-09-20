@@ -113,11 +113,11 @@ python scripts/project_state.py validate --root examples/personal-project
 
 ```bash
 git remote add origin https://github.com/<your-account>/<repository>.git
-git push -u origin master
+git push -u origin main
 git push origin v0.1.0
 ```
 
-如果先上传功能分支，将最后一条命令中的 `master` 替换为 `feat/project-workflow-v0.1.0`。推送由用户执行，本项目不会自动 push。
+如果先上传功能分支，将最后一条命令中的 `main` 替换为 `feat/project-workflow-v0.1.0`。推送由用户执行，本项目不会自动 push。
 
 ## 设计文档
 
