@@ -1,8 +1,10 @@
 """Validate and maintain portable project state files."""
 
+import argparse
 import json
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -581,5 +583,127 @@ def _write_text_atomic(path, text):
         raise
 
 
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Initialize, validate, apply, and render portable project state."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    init_parser = subparsers.add_parser("init", help="initialize .project state")
+    init_parser.add_argument("--root", required=True)
+    init_parser.add_argument("--name", required=True)
+    init_parser.add_argument("--summary", required=True)
+    init_parser.add_argument("--success", action="append", required=True)
+    init_parser.add_argument("--constraint", action="append", default=[])
+    init_parser.add_argument("--status", default="planning", choices=sorted(PROJECT_STATUSES))
+
+    validate_parser = subparsers.add_parser("validate", help="validate project state")
+    validate_parser.add_argument("--root", required=True)
+
+    apply_parser = subparsers.add_parser("apply", help="apply a candidate state")
+    apply_parser.add_argument("--root", required=True)
+    apply_parser.add_argument("--expected-revision", required=True, type=int)
+    apply_parser.add_argument("--file", required=True)
+
+    render_parser = subparsers.add_parser("render", help="render PROJECT.md")
+    render_parser.add_argument("--root", required=True)
+
+    summary_parser = subparsers.add_parser("summary", help="print a concise summary")
+    summary_parser.add_argument("--root", required=True)
+
+    return parser
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "init":
+            project_dir = Path(args.root) / ".project"
+            state = new_state(
+                name=args.name,
+                summary=args.summary,
+                success_criteria=args.success,
+                constraints=args.constraint,
+                status=args.status,
+            )
+            write_new_project(project_dir, state)
+            print(f"Initialized {project_dir / 'project.json'}")
+            return 0
+
+        if args.command == "validate":
+            state = load_state(Path(args.root) / ".project" / "project.json")
+            print(f"Valid project state at revision {state['revision']}")
+            return 0
+
+        if args.command == "apply":
+            candidate_path = Path(args.file)
+            try:
+                candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValidationError(
+                    f"unable to read candidate state: {candidate_path}"
+                ) from exc
+            applied = apply_candidate(
+                Path(args.root) / ".project",
+                candidate,
+                args.expected_revision,
+            )
+            print(f"Applied project state revision {applied['revision']}")
+            return 0
+
+        if args.command == "render":
+            state = load_state(Path(args.root) / ".project" / "project.json")
+            print(render_project_md(state), end="")
+            return 0
+
+        if args.command == "summary":
+            state = load_state(Path(args.root) / ".project" / "project.json")
+            print(_render_summary(state))
+            return 0
+    except (ValidationError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    parser.error(f"unsupported command: {args.command}")
+    return 2
+
+
+def _render_summary(state):
+    work_items = state["work_items"]
+    counts = {}
+    for status in sorted(WORK_ITEM_STATUSES):
+        counts[status] = sum(1 for item in work_items if item["status"] == status)
+    active_risks = sum(
+        1 for risk in state["risks"] if risk["status"] in {"open", "mitigated"}
+    )
+    next_actions = [
+        item for item in work_items if item["status"] in {"ready", "in_progress"}
+    ]
+    next_actions.sort(
+        key=lambda item: ("p0", "p1", "p2", "p3").index(item["priority"])
+    )
+    status_counts = ", ".join(
+        f"{status}={counts[status]}" for status in sorted(counts) if counts[status]
+    )
+    lines = [
+        f"Project: {state['project']['name']}",
+        f"Status: {state['project']['status']}",
+        f"Revision: {state['revision']}",
+        f"Milestones: {len(state['milestones'])}",
+        f"Work items: {status_counts or 'none'}",
+        f"Active risks: {active_risks}",
+        "Next actions:",
+    ]
+    if next_actions:
+        lines.extend(
+            f"- {item['id']} [{item['priority']}/{item['status']}] {item['title']}"
+            for item in next_actions[:3]
+        )
+    else:
+        lines.append("- none")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    raise SystemExit("CLI is not implemented yet")
+    raise SystemExit(main())

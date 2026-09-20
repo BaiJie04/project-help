@@ -1,4 +1,6 @@
 import copy
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -198,6 +200,77 @@ class StateRenderingAndApplyTests(unittest.TestCase):
                 "Updated",
                 (project_dir / "PROJECT.md").read_text(encoding="utf-8"),
             )
+
+
+class ProjectStateCliTests(unittest.TestCase):
+    def run_main(self, *args):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+            io.StringIO()
+        ):
+            return project_state.main([str(arg) for arg in args])
+
+    def test_init_creates_project_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+
+            result = self.run_main(
+                "init",
+                "--root",
+                root,
+                "--name",
+                "Demo",
+                "--summary",
+                "Build a demo",
+                "--success",
+                "Runs",
+            )
+
+            self.assertEqual(result, 0)
+            self.assertTrue((root / ".project" / "project.json").exists())
+            self.assertTrue((root / ".project" / "PROJECT.md").exists())
+
+    def test_apply_returns_two_on_revision_mismatch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = project_state.new_state(
+                "Demo",
+                "Build a demo",
+                ["Runs"],
+                [],
+                now="2026-09-20T00:00:00Z",
+            )
+            project_state.write_new_project(root / ".project", state)
+            candidate = root / "candidate.json"
+            state["revision"] = 2
+            candidate.write_text(json.dumps(state), encoding="utf-8")
+
+            result = self.run_main(
+                "apply",
+                "--root",
+                root,
+                "--expected-revision",
+                99,
+                "--file",
+                candidate,
+            )
+
+            self.assertEqual(result, 2)
+
+    def test_validate_returns_zero_for_valid_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            project_state.write_new_project(
+                root / ".project",
+                project_state.new_state(
+                    "Demo",
+                    "Build a demo",
+                    ["Runs"],
+                    [],
+                    now="2026-09-20T00:00:00Z",
+                ),
+            )
+
+            self.assertEqual(self.run_main("validate", "--root", root), 0)
 
 
 if __name__ == "__main__":
