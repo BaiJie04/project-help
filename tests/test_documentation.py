@@ -73,6 +73,16 @@ class PackagingTests(unittest.TestCase):
         ):
             self.assertIn(f"## {heading}", readme)
 
+    def test_default_readme_is_english_and_links_chinese_version(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("[Simplified Chinese](README.zh-CN.md)", readme)
+        self.assertIn("This repository provides", readme)
+
+    def test_chinese_readme_links_back_to_default(self):
+        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+        self.assertIn("[English](README.md)", readme)
+        self.assertIn("项目工作流 Skill", readme)
+
     def test_release_metadata_uses_mit_and_v010(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

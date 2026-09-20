@@ -1,24 +1,28 @@
 # Project Workflow Skill
 
-`project-workflow` 是一个面向个人开发项目的可移植项目管理 skill。它把项目目标、里程碑、迭代、工作项、依赖、风险、决策和完成证据保存为结构化 JSON，同时生成便于阅读的 Markdown 视图。
+[English](README.md) | [Simplified Chinese](README.zh-CN.md)
 
-同一套方法、状态格式和核心提示词可以用于支持 Skill 的 AI 软件、只能读取文件的 AI，以及纯聊天模型。Python、Git 和平台专属工具都是可选增强，不是核心依赖。
+`project-workflow` is a portable project-management skill for personal development projects. It stores goals, milestones, iterations, work items, dependencies, risks, decisions, and completion evidence as structured JSON while generating a human-readable Markdown view.
 
-## 版本范围
+The same methodology, state format, and core prompts can be used with skill-aware AI software, file-aware assistants, and chat-only models. Python, Git, and platform-specific tools are optional enhancements rather than core requirements.
 
-v0.1.0 支持：
+This repository provides the reusable workflow. Each managed project keeps its own state under `.project/`.
 
-- 初始化个人项目状态。
-- 规划里程碑、迭代、backlog、依赖和验收标准。
-- 更新任务、阻塞、风险、决策和完成证据。
-- 审查进度并生成下一步行动。
-- 关闭里程碑或项目并记录复盘。
-- revision 冲突保护、原子写入和确定性 Markdown 生成。
-- Git 感知但必须确认后提交，永不自动 push。
+## Version Scope
 
-团队权限、企业预算、多项目组合看板以及外部系统双向同步不属于 v0.1.0。
+Version 0.1.0 supports:
 
-## 仓库结构
+- Initializing personal project state.
+- Planning milestones, iterations, backlogs, dependencies, and acceptance criteria.
+- Updating work items, blockers, risks, decisions, and completion evidence.
+- Reviewing progress and producing next actions.
+- Closing milestones or projects with retrospectives.
+- Revision-conflict protection, atomic writes, and deterministic Markdown rendering.
+- Git-aware workflows with confirmation before commits and no automatic pushes.
+
+Team permissions, enterprise budgets, multi-project portfolio dashboards, and bidirectional external integrations are outside v0.1.0.
+
+## Repository Layout
 
 ```text
 project-help/
@@ -31,40 +35,46 @@ project-help/
 `-- tests/
 ```
 
-`SKILL.md` 是跨平台入口。`references/` 保存按需加载的方法、状态契约和工作流。`scripts/project_state.py` 是只依赖 Python 标准库的可选工具。
+`SKILL.md` is the portable entry point. `references/` contains the methodology, state contract, and workflow instructions loaded as needed. `scripts/project_state.py` is an optional standard-library tool.
 
 ## Installation
 
 ### Skill Mode
 
-把整个仓库放入目标 AI 软件的 skill 目录，或将仓库内容复制为该软件的本地 skill。平台应能发现 `SKILL.md`，并在需要时读取其中的 references。
+Place the repository in the skill directory of a skill-aware AI application, or copy its contents into that application's local skill storage. The platform should discover `SKILL.md` and read the relevant references when needed.
 
-安装后可以直接提出：
+After installation, requests such as these can invoke the workflow:
 
 ```text
-为这个项目建立项目管理状态。
-把下一阶段拆成里程碑、迭代和工作项。
-检查当前迭代的阻塞和风险。
+Initialize project-management state for this repository.
+Break the next phase into milestones, iterations, and work items.
+Review the current iteration for blockers and risks.
+```
+
+Explicit invocation is also supported when the runtime provides it:
+
+```text
+Use $project-workflow to update T-003.
 ```
 
 ### File Mode
 
-如果平台不能发现 skill，但可以读取仓库：
+If the platform cannot discover skills but can read repository files:
 
-1. 将 `SKILL.md` 设置为系统提示词、自定义指令或项目指令。
-2. 允许模型读取 `references/`、`templates/` 和目标项目的 `.project/`。
-3. 按 `SKILL.md` 中的路由选择工作流。
+1. Supply `SKILL.md` as a system prompt, custom instruction, or project instruction.
+2. Allow the model to read `references/`, `templates/`, and the target project's `.project/` directory.
+3. Follow the workflow routing in `SKILL.md`.
 
 ### Chat Mode
 
-如果平台不能访问文件：
+If the platform cannot access files:
 
-1. 粘贴 `SKILL.md` 的核心契约。
-2. 粘贴完整的当前 `project.json`。
-3. 说明要执行的 `init`、`plan`、`update`、`review` 或 `close` 操作。
-4. 模型必须返回完整的候选 JSON，并明确说明没有直接写入文件或 Git。
+1. Paste the core contract from `SKILL.md`.
+2. Paste the complete current `project.json`.
+3. Specify the requested `init`, `plan`, `update`, `review`, or `close` operation.
+4. The model must return a complete candidate JSON object and explicitly state that it did not write files or modify Git.
 
-## 受管理项目布局
+## Managed Project Layout
 
 ```text
 <project-root>/
@@ -73,11 +83,11 @@ project-help/
     `-- PROJECT.md
 ```
 
-`project.json` 是唯一事实源。`PROJECT.md` 是生成视图，不应手工修改。
+`project.json` is the single source of truth. `PROJECT.md` is a generated view and should not be edited manually.
 
-## CLI 使用
+## CLI Usage
 
-需要 Python 3.10 或更高版本。Windows 可使用 `py` 代替 `python`。
+Python 3.10 or newer is required. On Windows, `py` can be used instead of `python`.
 
 ```bash
 python scripts/project_state.py init --root /path/to/project --name "Project" --summary "Outcome" --success "Observable result"
@@ -87,29 +97,29 @@ python scripts/project_state.py render --root /path/to/project
 python scripts/project_state.py summary --root /path/to/project
 ```
 
-`apply` 要求候选状态的 revision 等于 `expected-revision + 1`。校验失败时不会覆盖现有状态。
+`apply` requires the candidate revision to equal `expected-revision + 1`. A validation failure leaves the existing state unchanged.
 
-## Git 行为
+## Git Behavior
 
-- 写文件前先展示状态影响并获得确认。
-- Git 提交需要再次确认。
-- 默认只提交 `.project/project.json` 和 `.project/PROJECT.md`。
-- 不修改无关工作区文件。
-- 提交消息使用 `project(init|plan|update|review|close): <summary>`。
-- 本 skill 永不自动 push。
+- Show the intended state effects and obtain confirmation before writing files.
+- Obtain separate confirmation before committing.
+- By default, commit only `.project/project.json` and `.project/PROJECT.md`.
+- Do not modify unrelated working-tree files.
+- Use commit subjects such as `project(init|plan|update|review|close): <summary>`.
+- Never push automatically.
 
-## 测试
+## Testing
 
 ```bash
 python -m unittest discover -s tests -v
 python scripts/project_state.py validate --root examples/personal-project
 ```
 
-测试不依赖第三方包。Windows 上可使用 `py -m unittest discover -s tests -v`。
+The tests use no third-party packages. On Windows, run `py -m unittest discover -s tests -v`.
 
 ## GitHub Upload
 
-本地验证完成后，先创建 GitHub 空仓库，再执行：
+After local verification, create an empty GitHub repository and run:
 
 ```bash
 git remote add origin https://github.com/<your-account>/<repository>.git
@@ -117,14 +127,13 @@ git push -u origin main
 git push origin v0.1.0
 ```
 
-如果先上传功能分支，将最后一条命令中的 `main` 替换为 `feat/project-workflow-v0.1.0`。推送由用户执行，本项目不会自动 push。
+To upload a feature branch first, replace `main` with the feature branch name. Pushing is always performed by the user or an explicitly authorized agent; this project never pushes automatically.
 
-## 设计文档
+## Design Documents
 
-- 设计规格：`docs/superpowers/specs/2026-09-20-project-workflow-design.md`
-- 实施计划：`docs/superpowers/plans/2026-09-20-project-workflow-v0.1.0.md`
+- Design specification: `docs/superpowers/specs/2026-09-20-project-workflow-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-09-20-project-workflow-v0.1.0.md`
 
 ## License
 
-MIT License，详见 `LICENSE`。
-
+MIT License. See `LICENSE` for details.
