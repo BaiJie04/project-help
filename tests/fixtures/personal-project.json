@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "project": {
+    "id": "PRJ-001",
+    "name": "Personal Documentation Site",
+    "summary": "Publish a maintainable personal documentation site with search and a repeatable deployment path.",
+    "status": "active",
+    "constraints": [
+      "One maintainer",
+      "No paid services"
+    ],
+    "success_criteria": [
+      "Responsive layout works on desktop and mobile",
+      "Content is searchable",
+      "Deployment steps are documented"
+    ],
+    "created_at": "2026-09-20T00:00:00Z",
+    "updated_at": "2026-09-20T00:00:00Z"
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "title": "Publish a usable first version",
+      "description": "Ship the content structure, navigation, search, and deployment guide.",
+      "status": "active",
+      "target_date": "2026-10-15T00:00:00Z",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "M-002",
+      "title": "Improve ongoing authoring",
+      "description": "Add reusable content patterns and maintenance checks.",
+      "status": "planned",
+      "target_date": "2026-11-15T00:00:00Z",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "iterations": [
+    {
+      "id": "I-001",
+      "title": "Foundation",
+      "goal": "Establish the site structure and navigation.",
+      "status": "active",
+      "start_date": "2026-09-20T00:00:00Z",
+      "end_date": "2026-09-27T00:00:00Z",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "I-002",
+      "title": "Search and release",
+      "goal": "Add search and publish the first public version.",
+      "status": "planned",
+      "start_date": "2026-09-28T00:00:00Z",
+      "end_date": "2026-10-15T00:00:00Z",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "work_items": [
+    {
+      "id": "T-001",
+      "type": "epic",
+      "title": "Build the documentation foundation",
+      "description": "Create the information architecture and site shell.",
+      "status": "ready",
+      "priority": "p0",
+      "milestone_id": "M-001",
+      "iteration_id": "I-001",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "Primary sections are defined",
+          "status": "pending"
+        },
+        {
+          "id": "AC-002",
+          "text": "Navigation reaches every section",
+          "status": "pending"
+        }
+      ],
+      "depends_on": [],
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "T-002",
+      "type": "story",
+      "title": "Create responsive navigation",
+      "description": "Provide desktop and mobile navigation for the documentation tree.",
+      "status": "ready",
+      "priority": "p0",
+      "parent_id": "T-001",
+      "milestone_id": "M-001",
+      "iteration_id": "I-001",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "Desktop navigation exposes all top-level sections",
+          "status": "pending"
+        },
+        {
+          "id": "AC-002",
+          "text": "Mobile navigation is usable at 360px width",
+          "status": "pending"
+        }
+      ],
+      "depends_on": [],
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "T-003",
+      "type": "task",
+      "title": "Add site-wide search",
+      "description": "Index published content and expose a search interface.",
+      "status": "blocked",
+      "priority": "p0",
+      "parent_id": "T-002",
+      "milestone_id": "M-001",
+      "iteration_id": "I-002",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "Titles and headings are indexed",
+          "status": "pending"
+        }
+      ],
+      "depends_on": [
+        "T-002"
+      ],
+      "blocked_reason": "Search indexing starts after the navigation structure is stable.",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "T-004",
+      "type": "bug",
+      "title": "Fix mobile code-block overflow",
+      "description": "Long code lines currently widen the mobile viewport.",
+      "status": "in_progress",
+      "priority": "p1",
+      "milestone_id": "M-001",
+      "iteration_id": "I-001",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "Long code lines scroll inside the block",
+          "status": "pending"
+        }
+      ],
+      "depends_on": [],
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    },
+    {
+      "id": "T-005",
+      "type": "task",
+      "title": "Document local preview",
+      "description": "Record the local build and preview workflow.",
+      "status": "done",
+      "priority": "p1",
+      "milestone_id": "M-001",
+      "iteration_id": "I-001",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "Commands are copy-pasteable",
+          "status": "met"
+        },
+        {
+          "id": "AC-002",
+          "text": "Expected local URL is documented",
+          "status": "met"
+        }
+      ],
+      "depends_on": [],
+      "completed_at": "2026-09-20T12:00:00Z",
+      "completion_note": "Commands and the local preview URL were verified from a clean shell.",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T12:00:00Z"
+    },
+    {
+      "id": "T-006",
+      "type": "spike",
+      "title": "Evaluate static search options",
+      "description": "Compare lightweight static search implementations.",
+      "status": "backlog",
+      "priority": "p2",
+      "milestone_id": "M-002",
+      "iteration_id": "I-002",
+      "acceptance_criteria": [
+        {
+          "id": "AC-001",
+          "text": "At least two options are compared",
+          "status": "pending"
+        }
+      ],
+      "depends_on": [],
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-001",
+      "title": "Search implementation adds maintenance burden",
+      "description": "A heavy search stack may be difficult for one maintainer to upgrade.",
+      "probability": "medium",
+      "impact": "high",
+      "status": "open",
+      "mitigation": "Prefer a static index and compare upgrade effort during the spike.",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-001",
+      "title": "Use plain Markdown content",
+      "context": "The site needs a durable authoring format with low migration cost.",
+      "decision": "Keep source content in plain Markdown.",
+      "rationale": "Markdown is portable, readable, and supported by many static-site tools.",
+      "consequences": "Rich interactive components require a separate authoring pattern.",
+      "status": "accepted",
+      "created_at": "2026-09-20T00:00:00Z",
+      "updated_at": "2026-09-20T00:00:00Z"
+    }
+  ]
+}
